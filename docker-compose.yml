@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: product_inventory_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-product_inventory}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/000001_create_products_table.up.sql:/docker-entrypoint-initdb.d/01_create_products.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d product_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: product_inventory_api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DB_URL: postgres://postgres:postgrespassword@postgres:5432/product_inventory?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/product_inventory?sslmode=disable
+      PORT: 8080
+      ENV: ${ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seeder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: product_inventory_seeder
+    entrypoint: ["seeder"]
+    environment:
+      DB_URL: postgres://postgres:postgrespassword@postgres:5432/product_inventory?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/product_inventory?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:

@@ -1,0 +1,6 @@
+.git
+.gitignore
+.dockerignore
+.zshrc
+.DS_Store
+*.md
